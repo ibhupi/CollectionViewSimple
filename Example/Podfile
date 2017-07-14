@@ -1,0 +1,11 @@
+use_frameworks!
+
+target 'CollectionViewSimple_Example' do
+  pod 'CollectionViewSimple', :path => '../'
+
+  target 'CollectionViewSimple_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end
