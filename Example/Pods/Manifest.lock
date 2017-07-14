@@ -1,0 +1,16 @@
+PODS:
+  - CollectionViewSimple (0.1.0)
+
+DEPENDENCIES:
+  - CollectionViewSimple (from `../`)
+
+EXTERNAL SOURCES:
+  CollectionViewSimple:
+    :path: ../
+
+SPEC CHECKSUMS:
+  CollectionViewSimple: d78e2cfffeb2a35b29d52b39ab962b0350ec7f98
+
+PODFILE CHECKSUM: 7fa2026ac0969db143f7dcba63fda5a16a533187
+
+COCOAPODS: 1.2.1

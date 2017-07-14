@@ -1,0 +1,6 @@
+framework module CollectionViewSimple {
+  umbrella header "CollectionViewSimple-umbrella.h"
+
+  export *
+  module * { export * }
+}
