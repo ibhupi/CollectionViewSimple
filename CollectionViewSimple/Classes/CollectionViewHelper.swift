@@ -8,6 +8,10 @@
 
 import UIKit
 
+private struct AssociatedObjectKey {
+    static var registeredUseables = "registeredUseables"
+}
+
 public protocol NibLoadable: class {
     static var nib: UINib { get }
 }
@@ -60,6 +64,7 @@ public extension NibOwnerLoadable where Self: UIView {
 
 public protocol Reusable: class {
     static var reuseIdentifier: String { get }
+    static var nib: UINib? { get }
 }
 
 public typealias NibReusable = Reusable & NibLoadable
@@ -68,13 +73,67 @@ public extension Reusable {
     static var reuseIdentifier: String {
         return String(describing: self)
     }
+    static var nib: UINib? {
+        let name = String(describing: self)
+        var nibFound = false
+        nibFound = Bundle(for: self).path(forResource: name, ofType: "xib") != nil
+        if nibFound == false {
+            nibFound = Bundle(for: self).path(forResource: name, ofType: "nib") != nil
+        }
+        guard nibFound else {
+            return nil
+        }
+        return UINib(nibName: name, bundle: Bundle(for: self)) 
+    }
 }
 
-extension UICollectionViewCell: Reusable {
-
+extension UICollectionReusableView: Reusable {
+    
 }
 
 public extension UICollectionView {
+    
+    
+    /// This registeredCells is to keep track of cell is registered before dequeuing it.
+    /// registerReusableCellIfNeeded uses this to register cell if not registered before any dequeue happens on same cell in dequeueReusableCell
+    private var registeredUseables: Set<String> {
+        get {
+            if let registeredUseables = objc_getAssociatedObject(self, &AssociatedObjectKey.registeredUseables) as? Set<String> {
+                return registeredUseables
+            }
+            let registeredUseables = Set<String>()
+            self.registeredUseables = registeredUseables
+            return registeredUseables
+        }
+        
+        set {
+            objc_setAssociatedObject(self, &AssociatedObjectKey.registeredUseables, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+    
+    
+    /// This is will register cell if cell is not registered
+    /// - Parameter _: CellType
+    final func registerReusableIfNeeded<T: UICollectionReusableView>(_: T.Type) {
+        guard !registeredUseables.contains(T.reuseIdentifier) else { return }
+        registeredUseables.insert(T.reuseIdentifier)
+        if let nib = T.nib {
+            register(nib, forCellWithReuseIdentifier: T.reuseIdentifier)
+        } else {
+            register(T.self, forCellWithReuseIdentifier: T.reuseIdentifier)
+        }
+    }
+    
+    final func registerReusableHeaderIfNeeded<T: UICollectionReusableView>(_: T.Type, kind: String) {
+        guard !registeredUseables.contains(T.reuseIdentifier) else { return }
+        registeredUseables.insert(T.reuseIdentifier)
+        if let nib = T.nib {
+            register(nib, forSupplementaryViewOfKind: kind, withReuseIdentifier: T.reuseIdentifier)
+        } else {
+            register(T.self, forSupplementaryViewOfKind: kind, withReuseIdentifier: T.reuseIdentifier)
+        }
+    }
+
     final func register<T: UICollectionViewCell>(cellType: T.Type)
         where T: Reusable & NibLoadable {
             self.register(cellType.nib, forCellWithReuseIdentifier: cellType.reuseIdentifier)
@@ -87,6 +146,7 @@ public extension UICollectionView {
 
     final func dequeueReusableCell<T: UICollectionViewCell>(for indexPath: IndexPath, cellType: T.Type = T.self) -> T
         where T: Reusable {
+            registerReusableIfNeeded(T.self)
 
             let bareCell = self.dequeueReusableCell(withReuseIdentifier: cellType.reuseIdentifier, for: indexPath)
             guard let cell = bareCell as? T else {
@@ -119,9 +179,14 @@ public extension UICollectionView {
     final func dequeueReusableSupplementaryView<T: UICollectionReusableView>
         (ofKind elementKind: String, for indexPath: IndexPath, viewType: T.Type = T.self) -> T
         where T: Reusable {
+            self.registerReusableHeaderIfNeeded(T.self, kind: elementKind)
+            let reuseIdentifier = T.reuseIdentifier
+            if reuseIdentifier.characters.count > 0 {
+                
+            }
             let view = self.dequeueReusableSupplementaryView(
                 ofKind: elementKind,
-                withReuseIdentifier: viewType.reuseIdentifier,
+                withReuseIdentifier: T.reuseIdentifier,
                 for: indexPath
             )
             guard let typedView = view as? T else {
